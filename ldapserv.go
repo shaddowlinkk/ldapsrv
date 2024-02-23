@@ -1,10 +1,12 @@
 package awesomeProject
 
 import (
+	"fmt"
+	"github.com/go-ldap/ldap/v3"
+	"github.com/labstack/gommon/log"
 	"net/http"
 	"os"
 
-	"github.com/go-ldap/ldap/v3"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -22,6 +24,28 @@ func main() {
 
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, struct{ Status string }{Status: "OK"})
+	})
+
+	e.GET("/ldap", func(c echo.Context) error {
+		l, err := ldap.DialURL("") //need to add ldap url
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = l.Bind("cn=Directory Manager", "") //need to add admin password
+		if err != nil {
+			log.Fatal(err)
+		}
+		user := "test"
+		baseDn := "" // neeed to add base dn
+		filter := fmt.Sprintf("(CN=%s)", ldap.EscapeFilter(user))
+		searchReq := ldap.NewSearchRequest(baseDn, ldap.ScopeWholeSubtree, 0, 0, 0, false, filter, []string{"uidNumber"}, nil)
+		result, err := l.Search(searchReq)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, struct {
+				Status string
+			}{Status: "error in serach"})
+		}
+		return c.JSON(http.StatusOK, result.Entries)
 	})
 
 	httpPort := os.Getenv("PORT")
